@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오늘의 급식 & AI 한줄평</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    .font-gowun { font-family: 'Gowun Dodum', sans-serif; }
+  </style>
+</head>
+<body class="bg-amber-50 min-h-screen text-slate-800 pb-12">
+
+  <!-- 헤더 영역 -->
+  <header class="bg-amber-400 text-slate-900 shadow-md py-6 px-4">
+    <div class="max-w-xl mx-auto text-center">
+      <h1 class="text-2xl sm:text-3xl font-black flex items-center justify-center gap-2">
+        <i class="fa-solid fa-utensils"></i> 오늘의 급식 & AI 한줄평
+      </h1>
+      <p class="text-xs sm:text-sm font-medium mt-1 text-amber-900">
+        나이스(NEIS) 급식 정보와 Google Gemini AI의 유쾌한 리뷰
+      </p>
+    </div>
+  </header>
+
+  <main class="max-w-xl mx-auto mt-6 px-4 space-y-6">
+
+    <!-- 1. 학교 검색 섹션 -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-amber-200">
+      <h2 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2 text-slate-700">
+        <i class="fa-solid fa-school text-amber-500"></i> 학교 선택
+      </h2>
+      <div class="flex gap-2">
+        <input type="text" id="schoolInput" placeholder="학교 이름을 입력하세요 (예: 서울고)" 
+          class="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <button onclick="searchSchool()" 
+          class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-all flex items-center gap-1">
+          <i class="fa-solid fa-magnifying-glass"></i> 검색
+        </button>
+      </div>
+
+      <!-- 학교 검색 결과 리스트 -->
+      <div id="schoolList" class="mt-3 divide-y divide-slate-100 max-h-48 overflow-y-auto hidden border border-slate-200 rounded-xl"></div>
+      
+      <!-- 선택된 학교 표시 -->
+      <div id="selectedSchoolBadge" class="mt-3 hidden bg-amber-100 border border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl flex justify-between items-center">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-check text-amber-600"></i>
+          <span id="selectedSchoolText" class="font-bold text-sm"></span>
+        </div>
+        <span class="text-xs font-semibold text-amber-800 bg-amber-200 px-2 py-1 rounded-md">선택됨</span>
+      </div>
+    </section>
+
+    <!-- 2. 날짜 선택 섹션 -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-amber-200">
+      <h2 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2 text-slate-700">
+        <i class="fa-solid fa-calendar-days text-amber-500"></i> 날짜 선택
+      </h2>
+      <input type="date" id="datePicker" 
+        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+    </section>
+
+    <!-- 3. 급식 및 AI 한줄평 출력 섹션 -->
+    <section class="bg-white p-6 rounded-2xl shadow-md border border-amber-200 relative overflow-hidden">
+      <!-- AI 한줄평 카드 -->
+      <div class="mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 p-4 rounded-xl relative">
+        <div class="flex items-center gap-2 text-purple-700 font-bold mb-2 text-sm">
+          <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> Gemini AI의 유쾌한 한줄평
+        </div>
+        <div id="aiReviewArea" class="text-slate-700 font-gowun text-base sm:text-lg leading-relaxed">
+          학교와 날짜를 선택하면 AI가 급식 메뉴를 맛깔나게 평가해 드려요! 🤖✨
+        </div>
+      </div>
+
+      <!-- 급식 메뉴 목록 -->
+      <div>
+        <div class="flex justify-between items-end border-b pb-2 mb-4">
+          <h3 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-bowl-rice text-amber-500"></i> 오늘의 메뉴
+          </h3>
+          <span id="calorieInfo" class="text-xs text-slate-500 font-semibold bg-slate-100 px-2 py-1 rounded-md"></span>
+        </div>
+
+        <div id="menuArea" class="text-slate-700 whitespace-pre-line leading-relaxed text-sm sm:text-base font-medium">
+          학교를 먼저 검색해 주세요.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // 상태 변수
+    let selectedSchool = null;
+
+    // 오늘 날짜 세팅 (YYYY-MM-DD)
+    const datePicker = document.getElementById('datePicker');
+    const today = new Date().toISOString().split('T')[0];
+    datePicker.value = today;
+
+    // Enter 키 검색 지원
+    document.getElementById('schoolInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') searchSchool();
+    });
+
+    // 날짜 변경 시 자동 조회
+    datePicker.addEventListener('change', fetchMealAndReview);
+
+    // 1. 나이스 Open API 학교 검색
+    async function searchSchool() {
+      const query = document.getElementById('schoolInput').value.trim();
+      if (!query) {
+        alert('학교 이름을 입력해 주세요.');
+        return;
+      }
+
+      const schoolList = document.getElementById('schoolList');
+      schoolList.innerHTML = '<div class="p-3 text-sm text-slate-500 text-center"><i class="fa-solid fa-spinner animate-spin"></i> 학교를 찾고 있습니다...</div>';
+      schoolList.classList.remove('hidden');
+
+      try {
+        // 백엔드가 없을 때를 대비한 나이스 공식 오픈 API 직접 호출 fallback (키 없을 경우 일반 키 사용)
+        const url = `https://open.neis.go.kr/hub/schoolInfo?Type=json&pIndex=1&pSize=15&SCHUL_NM=${encodeURIComponent(query)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.schoolInfo) {
+          schoolList.innerHTML = '';
+          const schools = data.schoolInfo[1].row;
+
+          schools.forEach(s => {
+            const schoolObj = {
+              atptCode: s.ATPT_OFCDC_SC_CODE,
+              schoolCode: s.SD_SCHUL_CODE,
+              schoolName: s.SCHUL_NM,
+              location: s.LCTN_SC_NM
+            };
+
+            const item = document.createElement('div');
+            item.className = 'p-3 hover:bg-amber-50 cursor-pointer transition-colors text-sm flex justify-between items-center';
+            item.innerHTML = `
+              <div>
+                <span class="font-bold text-slate-800">${schoolObj.schoolName}</span>
+                <span class="text-xs text-slate-400 ml-2">${schoolObj.location}</span>
+              </div>
+              <i class="fa-solid fa-chevron-right text-xs text-slate-300"></i>
+            `;
+            item.onclick = () => selectSchool(schoolObj);
+            schoolList.appendChild(item);
+          });
+        } else {
+          schoolList.innerHTML = '<div class="p-3 text-sm text-slate-500 text-center">검색 결과가 없습니다.</div>';
+        }
+      } catch (err) {
+        console.error(err);
+        schoolList.innerHTML = '<div class="p-3 text-sm text-red-500 text-center">학교 검색 중 오류가 발생했습니다.</div>';
+      }
+    }
+
+    // 학교 선택 처리
+    function selectSchool(school) {
+      selectedSchool = school;
+      document.getElementById('schoolList').classList.add('hidden');
+      document.getElementById('selectedSchoolBadge').classList.remove('hidden');
+      document.getElementById('selectedSchoolText').innerText = `${school.schoolName} (${school.location})`;
+      
+      fetchMealAndReview();
+    }
+
+    // 2. 급식 메뉴 조회 및 Gemini API 호출
+    async function fetchMealAndReview() {
+      if (!selectedSchool) return;
+
+      const rawDate = datePicker.value;
+      if (!rawDate) return;
+
+      const dateCode = rawDate.replace(/-/g, '');
+      const menuArea = document.getElementById('menuArea');
+      const aiReviewArea = document.getElementById('aiReviewArea');
+      const calorieInfo = document.getElementById('calorieInfo');
+
+      menuArea.innerHTML = '<div class="text-amber-600 font-medium py-4"><i class="fa-solid fa-spinner animate-spin"></i> 급식 메뉴를 불러오는 중...</div>';
+      aiReviewArea.innerHTML = '<div class="text-purple-600 font-medium"><i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i> AI가 오늘의 메뉴를 분석하고 있습니다...</div>';
+      calorieInfo.innerText = '';
+
+      try {
+        // 나이스 급식 API 호출
+        const mealUrl = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${selectedSchool.atptCode}&SD_SCHUL_CODE=${selectedSchool.schoolCode}&MLSV_YMD=${dateCode}`;
+        const mealRes = await fetch(mealUrl);
+        const mealData = await mealRes.json();
+
+        if (mealData.mealServiceDietInfo) {
+          const mealRow = mealData.mealServiceDietInfo[1].row[0];
+          
+          // 알레르기 정보 및 불필요한 특수문자 정제
+          const cleanMenu = mealRow.DDISH_NM
+            .replace(/<br\/>/g, '\n')
+            .replace(/\([0-9\.]+\)/g, '')
+            .trim();
+
+          menuArea.innerText = cleanMenu;
+          calorieInfo.innerText = mealRow.CAL_INFO || '';
+
+          // Gemini AI 한줄평 생성 호출
+          generateGeminiReview(selectedSchool.schoolName, rawDate, cleanMenu);
+        } else {
+          menuArea.innerHTML = '<span class="text-slate-400">해당 날짜에는 급식 정보(주말, 방학 또는 휴업일)가 없습니다. 🎈</span>';
+          aiReviewArea.innerText = '급식이 없는 날이에요! 맛있는 사먹는 음식을 기대해 볼까요? 😋';
+        }
+      } catch (err) {
+        console.error(err);
+        menuArea.innerText = '급식 정보를 불러오는데 실패했습니다.';
+        aiReviewArea.innerText = '오류가 발생했습니다.';
+      }
+    }
+
+    // 3. Gemini API 프록시 요청 (지수 백오프 적용)
+    async function generateGeminiReview(schoolName, date, menu) {
+      const aiReviewArea = document.getElementById('aiReviewArea');
+      const apiKey = ""; // 클라이언트 실행 환경에서 제공되는 API 키
+
+      const prompt = `당신은 위트 넘치고 친근한 영양사이자 푸드 크리에이터입니다.
+다음은 '${schoolName}'의 ${date} 급식 메뉴입니다:
+
+[급식 메뉴]
+${menu}
+
+학생들이 오늘 급식을 더욱 기대할 수 있도록 센스 있고 재미있는 'AI 한줄평(2문장 이내)'을 작성해 주세요. 
+이모지를 풍부하게 사용하고, 메뉴 중 매력적인 요리를 콕 짚어 친근한 어조(~해요 체)로 말해주세요.`;
+
+      // API 키가 없거나 서버 환경일 경우 처리
+      if (!apiKey) {
+        // 백엔드 Express API 호출 시도
+        try {
+          const response = await fetch('/api/gemini-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ schoolName, date, menu })
+          });
+          const data = await response.json();
+          if (data.success) {
+            aiReviewArea.innerText = data.review;
+            return;
+          }
+        } catch(e) {
+          // 백엔드 미구성 시 기본 메시지
+        }
+        aiReviewArea.innerText = '오늘도 맛있고 영양 만점인 급식이 준비되어 있네요! 맛있는 식사 되세요! 🍱✨';
+        return;
+      }
+
+      // Gemini REST API direct call with Exponential Backoff
+      let retries = 0;
+      const delays = [1000, 2000, 4000, 8000, 16000];
+
+      while (retries <= 5) {
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              aiReviewArea.innerText = text;
+              return;
+            }
+          }
+        } catch (e) {
+          // 백오프 재시도
+        }
+
+        if (retries === 5) break;
+        await new Promise(r => setTimeout(r, delays[retries]));
+        retries++;
+      }
+
+      aiReviewArea.innerText = '오늘의 급식 조합이 정말 환상적이네요! 맛있는 점심시간 되세요! 😋🍴';
+    }
+  </script>
+</body>
+</html>
